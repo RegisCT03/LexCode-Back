@@ -32,6 +32,10 @@ describe('administración', () => {
       expect(found.body.data.items[0].id).toBe(targetId);
       const weird = await api('GET', '/admin/users?q=a,b)(c', { token: admin });
       expect(weird.status).toBe(200);
+      const byEmail = await api('GET', `/admin/users?q=${encodeURIComponent(target.email)}`, { token: admin });
+      expect(byEmail.body.data.items.map((u: any) => u.id)).toEqual([targetId]);
+      const quote = await api('GET', '/admin/users?q=%22%5C*', { token: admin });
+      expect(quote.status).toBe(200);
     });
 
     it('detalle con consentimientos', async () => {

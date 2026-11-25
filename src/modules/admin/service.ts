@@ -18,8 +18,12 @@ const paged = <T>(data: T[] | null, count: number | null, page: { page: number; 
   pageSize: page.pageSize,
 });
 
-/** Quita caracteres que PostgREST usa como sintaxis en filtros `or`. */
-const safeTerm = (q: string) => q.replace(/[,()%*\\.:]/g, ' ').trim();
+/**
+ * Valor seguro para un filtro `or` de PostgREST: se quitan comodines y comillas,
+ * y el valor va entre comillas dobles para que puntos, comas o arrobas
+ * (p. ej. un correo) se busquen tal cual.
+ */
+const quotedPattern = (q: string) => `"*${q.replace(/["\\*%]/g, ' ').trim()}*"`;
 
 const slugify = (s: string) =>
   s
@@ -40,8 +44,10 @@ export async function listUsers({ db }: AuthContext, q: z.infer<typeof S.usersQu
   let query = db.from('profiles').select(USER_COLUMNS, { count: 'exact' });
   if (q.role) query = query.eq('role', q.role);
   if (q.status) query = query.eq('status', q.status);
-  const term = q.q ? safeTerm(q.q) : '';
-  if (term) query = query.or(`full_name.ilike.*${term}*,username.ilike.*${term}*,email.ilike.*${term}*`);
+  if (q.q?.trim()) {
+    const p = quotedPattern(q.q);
+    query = query.or(`full_name.ilike.${p},username.ilike.${p},email.ilike.${p}`);
+  }
   const { data, error, count } = await query.order('created_at', { ascending: false }).range(from, to);
   if (error) throw error;
   return paged(data, count, q);
@@ -253,5 +259,6 @@ export async function listAudit({ db }: AuthContext, q: z.infer<typeof S.auditQu
   if (q.recordId) query = query.eq('record_id', q.recordId);
   const { data, error, count } = await query.order('created_at', { ascending: false }).range(from, to);
   if (error) throw error;
+
   return paged(data, count, q);
 }
