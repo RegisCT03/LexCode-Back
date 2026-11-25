@@ -260,5 +260,18 @@ export async function listAudit({ db }: AuthContext, q: z.infer<typeof S.auditQu
   const { data, error, count } = await query.order('created_at', { ascending: false }).range(from, to);
   if (error) throw error;
 
-  return paged(data, count, q);
+  // Nombre de quién hizo cada cambio (actor_id no es llave foránea: la bitácora sobrevive al borrado de cuentas).
+  const rows = (data ?? []) as unknown as { actor_id: string | null }[];
+  const actorIds = [...new Set(rows.map((r) => r.actor_id).filter((id): id is string => !!id))];
+  const actors = new Map<string, { full_name: string; username: string }>();
+  if (actorIds.length) {
+    const people = unwrap(await db.from('profiles').select('id, full_name, username').in('id', actorIds)) as {
+      id: string;
+      full_name: string;
+      username: string;
+    }[];
+    people.forEach((p) => actors.set(p.id, { full_name: p.full_name, username: p.username }));
+  }
+  const items = rows.map((r) => ({ ...r, actor: r.actor_id ? (actors.get(r.actor_id) ?? null) : null }));
+  return paged(items, count, q);
 }

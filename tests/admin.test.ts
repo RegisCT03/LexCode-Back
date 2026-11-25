@@ -199,6 +199,7 @@ describe('administración', () => {
       expect(r.status).toBe(200);
       const roleChange = r.body.data.items.find((e: any) => e.changes && 'role' in e.changes);
       expect(roleChange?.actor_id).toBe(adminId);
+      expect(roleChange?.actor?.username).toBe('admin_lexcode');
     });
   });
 });
