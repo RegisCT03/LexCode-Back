@@ -28,7 +28,11 @@ export function proxy(request: NextRequest) {
   }
 
   const response = NextResponse.next();
-  if (isAllowed) response.headers.set('Access-Control-Allow-Origin', origin);
+  if (isAllowed) {
+    response.headers.set('Access-Control-Allow-Origin', origin);
+    // Para que el frontend lea el nombre del archivo en descargas (exportar mis datos).
+    response.headers.set('Access-Control-Expose-Headers', 'Content-Disposition');
+  }
   Object.entries(corsHeaders).forEach(([k, v]) => response.headers.set(k, v));
   return response;
 }
