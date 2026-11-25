@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
  * LOCAL o de pruebas con los datos de supabase/seed.sql. Crean usuarios y
  * cambian roles: nunca las corras contra producción.
  */
-export const API = process.env.API_URL ?? 'http://localhost:4000/api';
+export const API = process.env.API_URL ?? 'http://localhost:4000/api/v1';
 
 if (!/localhost|127\.0\.0\.1/.test(API) && process.env.ALLOW_REMOTE_TESTS !== '1') {
   throw new Error('Las pruebas solo corren contra localhost (define ALLOW_REMOTE_TESTS=1 para otro entorno de pruebas)');

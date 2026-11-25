@@ -10,7 +10,7 @@ Monolito modular por capas:
 
 ```
 src/
-  app/api/<módulo>/…/route.ts   Capa HTTP: valida la entrada (Zod), revisa la sesión y llama al servicio
+  app/api/v1/<módulo>/…/route.ts   Capa HTTP: valida la entrada (Zod), revisa la sesión y llama al servicio
   modules/<módulo>/             Lógica de negocio: schemas.ts (validación) y service.ts (casos de uso)
   lib/                          Piezas comunes (Etapa 0)
     auth.ts         requireAuth / requireAdmin: valida el token, carga el perfil, revisa rol y estado
@@ -50,7 +50,7 @@ tests/              Pruebas de integración contra la API real
 ```bash
 npm install
 copy .env.example .env.local      # y llena los valores
-npm run dev                       # http://localhost:4000/api/health
+npm run dev                       # http://localhost:4000/api/v1/health
 ```
 
 Variables (`.env.local`):
@@ -68,16 +68,16 @@ En **Supabase → Authentication → URL Configuration** agrega a *Redirect URLs
 
 ## Flujo de sesión para el frontend
 
-1. `POST /api/auth/login` → guarda `session.accessToken` y `session.refreshToken`.
+1. `POST /api/v1/auth/login` → guarda `session.accessToken` y `session.refreshToken`.
 2. Cada petición lleva `Authorization: Bearer <accessToken>`.
-3. Si recibes `401 session_expired`, llama `POST /api/auth/refresh` con el `refreshToken` y repite la petición.
-4. `GET /api/auth/me` dice el rol y el estado: `pending_guardian` → pantalla "esperando a tu tutor"; `deleted` → pantalla "recuperar cuenta".
-5. Recuperar contraseña: el enlace del correo abre `<FRONTEND_URL>/auth/restablecer#access_token=…`. El frontend manda ese token a `POST /api/auth/password/reset`.
-6. Autorización del tutor: el correo abre `<FRONTEND_URL>/autorizar-tutor?token=…`. El frontend manda el token a `POST /api/auth/guardian/confirm`.
+3. Si recibes `401 session_expired`, llama `POST /api/v1/auth/refresh` con el `refreshToken` y repite la petición.
+4. `GET /api/v1/auth/me` dice el rol y el estado: `pending_guardian` → pantalla "esperando a tu tutor"; `deleted` → pantalla "recuperar cuenta".
+5. Recuperar contraseña: el enlace del correo abre `<FRONTEND_URL>/auth/restablecer#access_token=…`. El frontend manda ese token a `POST /api/v1/auth/password/reset`.
+6. Autorización del tutor: el correo abre `<FRONTEND_URL>/autorizar-tutor?token=…`. El frontend manda el token a `POST /api/v1/auth/guardian/confirm`.
 
 ## Endpoints (Persona A)
 
-Todos bajo `/api`. 🔓 = sin sesión, 👤 = cualquier usuario activo, 🛡️ = admin.
+Todos bajo `/api/v1` (versión 1 de la API; un cambio incompatible iría en `/api/v2`). 🔓 = sin sesión, 👤 = cualquier usuario activo, 🛡️ = admin.
 
 ### Autenticación
 | Método | Ruta | | Descripción |
@@ -149,7 +149,7 @@ Todos bajo `/api`. 🔓 = sin sesión, 👤 = cualquier usuario activo, 🛡️ 
 
 1. `src/modules/<módulo>/schemas.ts`: esquemas Zod de entrada.
 2. `src/modules/<módulo>/service.ts`: funciones que reciben el `AuthContext` y usan `ctx.db` (RLS) o las funciones RPC de la base (`ctx.db.rpc('start_attempt', …)`).
-3. `src/app/api/<ruta>/route.ts`:
+3. `src/app/api/v1/<ruta>/route.ts`:
 
 ```ts
 import { requireAuth } from '@/lib/auth';
@@ -181,4 +181,4 @@ También: `npm run typecheck`, `npm run lint`, `npm run build`.
 
 ## Despliegue (Vercel)
 
-Importa el repositorio en Vercel, configura las mismas variables de `.env.local` y agrega la URL del frontend en `CORS_ORIGINS` y `FRONTEND_URL`.
+Importa el repositorio en Vercel, configura las mismas variables de `.env.local` y agrega la URL del frontend en `CORS_ORIGINS` y `FRONTEND_URL`. Comprueba el despliegue en `https://<backend>.vercel.app/api/v1/health`.
