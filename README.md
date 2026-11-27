@@ -145,6 +145,80 @@ Todos bajo `/api/v1` (versión 1 de la API; un cambio incompatible iría en `/ap
 | POST | `/admin/legal-documents` | Nueva versión del Aviso o de los Términos |
 | GET | `/admin/audit?table=&action=&actorId=&recordId=` | Bitácora |
 
+## Endpoints (Persona B)
+
+Mismas convenciones que arriba. 🎓 = estudiante, 👩‍🏫 = docente (o admin).
+
+### Contenido
+| Método | Ruta | | Descripción |
+|---|---|---|---|
+| GET | `/paths` | 👤 | Rutas publicadas con módulos y estado (`locked` · `available` · `in_progress` · `completed`) |
+| GET | `/modules/:id` | 👤 | Módulo con su contenido JSON; `403 module_locked` si falta el requisito |
+| GET | `/dilemmas`, `/dilemmas/:id` | 👤 | Dilemas con estado `active`/`locked`/`completed`; el detalle no revela la opción esperada |
+| GET | `/quizzes?moduleId=&groupId=`, `/quizzes/:id` | 👤 | Quizzes y preguntas **sin** la respuesta correcta |
+| POST | `/quizzes` | 👩‍🏫 🛡️ | Docente: `{ groupId, … }` para su grupo. Admin: `{ moduleId, … }` oficial. Incluye `questions[]` con `options[]` y `isCorrect` |
+| GET | `/quizzes/:id/edit` | 👩‍🏫 🛡️ | Quiz con respuestas correctas |
+| PATCH / DELETE | `/quizzes/:id` | 👩‍🏫 🛡️ | Editar (si envía `questions`, las reemplaza; `409 quiz_has_attempts` si ya hay intentos) / borrar |
+| GET / POST | `/admin/paths` · PATCH / DELETE `/admin/paths/:id` | 🛡️ | Rutas; `isPublished` publica |
+| PUT | `/admin/paths/:id/modules/order` | 🛡️ | `{ moduleIds: [...] }` en el orden deseado |
+| POST · PATCH / DELETE | `/admin/modules` · `/admin/modules/:id` | 🛡️ | Módulos: contenido, `prerequisiteId`, publicación |
+| GET / POST | `/admin/dilemmas` · GET / PATCH / DELETE `/admin/dilemmas/:id` | 🛡️ | Dilemas con `options[]` (consecuencia, sanción, referencia legal) |
+| PUT | `/admin/dilemmas/weekly` | 🛡️ | `{ dilemmaId, weekStart }` |
+
+### Grupos y aula
+| Método | Ruta | | Descripción |
+|---|---|---|---|
+| GET / POST | `/groups` | 👤 / 👩‍🏫 | Mis grupos / crear grupo (devuelve `invite_code` de 8 caracteres) |
+| POST | `/groups/join` | 🎓 | `{ inviteCode }` |
+| GET / PATCH | `/groups/:id` | 👤 / 👩‍🏫 | Detalle con alumnos y progreso / editar o cerrar con `{ isActive: false }` |
+| DELETE | `/groups/:id/members/me` | 🎓 | Salir del grupo |
+| DELETE | `/groups/:id/members/:studentId` | 👩‍🏫 | Quitar a un alumno |
+| POST | `/groups/:id/comments` · GET `/comments` | 👩‍🏫 / 👤 | Comentarios del docente |
+
+### Evaluación (quiz, dilema, memorama, completar frases)
+Flujo: `POST /attempts` → `POST /attempts/:id/answers` (varias veces) → `POST /attempts/:id/finish`.
+
+| Método | Ruta | | Descripción |
+|---|---|---|---|
+| POST | `/attempts` | 🎓 | `{ activity, targetId }`. Valida intentos, fecha límite y desbloqueo. Si hay uno abierto, lo **retoma** (`resumed`, `answered`, `timer`) |
+| GET | `/attempts`, `/attempts/:id` | 🎓 | Historial / estado de un intento |
+| POST | `/attempts/:id/answers` | 🎓 | Quiz `{ questionId, optionId\|null, timeMs }` · dilema `{ optionId, justification?, timeMs }` · completar frases `{ itemId, text, timeMs }` · memorama `{ matches: [{ concept, definition }], timeMs }` |
+| POST | `/attempts/:id/finish` | 🎓 | `{ score, correct, total, xpEarned, xpTotal, level, currentStreak, newBadges, certificateFolio }` |
+| GET | `/admin/cheats` | 🛡️ | Quizzes con calificación ≥ 90 y menos de 1.5 s por respuesta (solo marca) |
+| POST | `/admin/cheats/:attemptId/confirm` | 🛡️ | Una persona confirma: anula el XP del intento y revoca la constancia de la ruta |
+
+### Centro de entrenamiento
+| Método | Ruta | | Descripción |
+|---|---|---|---|
+| GET | `/activities` | 👤 | Auditoría rápida (quizzes oficiales), memorama y código incompleto |
+| GET | `/activities/memory-match/:moduleId` | 👤 | `concepts` y `definitions` mezclados por separado |
+| GET | `/activities/fill-blank/:moduleId` | 👤 | Frases con hueco y opciones, sin la respuesta |
+| GET / PUT | `/modules/:id/memory-pairs`, `/modules/:id/fill-blank-items` | 👩‍🏫 🛡️ | Editar el juego (docente: solo módulos de su grupo) |
+
+### Progreso, gamificación, constancias y dashboards
+| Método | Ruta | | Descripción |
+|---|---|---|---|
+| GET | `/progress?studentId=` | 👤 | Avance por ruta y módulo (docente: de un alumno suyo) |
+| GET | `/progress/modules/:id` | 🎓 | ¿Desbloqueado?, estado y porcentaje |
+| GET | `/badges` | 👤 | Insignias obtenidas y bloqueadas con su requisito |
+| GET | `/gamification/summary`, `/gamification/xp` | 👤 / 🎓 | XP, nivel, rachas, actividad diaria / movimientos de XP |
+| GET | `/rankings/group/:groupId`, `/rankings/public` | 👤 | Ranking semanal del grupo / ranking de quienes lo activaron |
+| GET | `/certificates` | 🎓 | Mis constancias |
+| GET | `/certificates/:id/download` | 🎓 | `{ url }` firmada (5 min); el PDF se genera la primera vez |
+| GET | `/certificates/verify/:folio` | 🔓 | Verificación pública por folio |
+| GET · PATCH | `/admin/certificates` · `/admin/certificates/:id` | 🛡️ | Listar / `{ revoked }` |
+| GET | `/dashboard/student` | 🎓 | XP, nivel, racha, misiones, dilema recomendado, rutas, actividad y logros |
+| GET | `/dashboard/teacher?groupId=` | 👩‍🏫 | Alumnos, promedio con tendencia, simulaciones por revisar, gráfica y últimas entregas |
+| GET | `/dashboard/stats/questions?quizId=`, `/dashboard/stats/paths` | 👩‍🏫 | Estadísticas anonimizadas |
+| GET | `/reminders` | 🎓 | Racha por vencer y dilema de la semana (vacío sin consentimiento de usos opcionales) |
+
+**Notas de diseño**
+- XP, rachas, insignias, desbloqueo de módulos, cierre de ruta y emisión de constancias viven en la base (`finish_attempt`); el backend solo las llama. Por eso no hay endpoints para escribir progreso o XP.
+- `timeMs` lo manda el cliente. En quizzes con tiempo límite se corrige con el reloj del servidor (se tolera 30 s de lectura de retroalimentación entre respuestas), y el modo sin límite de tiempo se respeta.
+- En el memorama, concepto y definición de una pareja comparten id (así valida la base), por lo que un cliente malicioso podría emparejar sin jugar. Por eso las anomalías pasan a la cola de `/admin/cheats` y nada se anula sin que una persona lo confirme.
+- Este backend **no requiere migraciones nuevas**. Lo que `authenticated` no puede escribir (rutas, dilemas y sus opciones) o leer (respuestas agregadas, opción correcta al editar) se hace con `serviceClient()`, siempre tras `requireAdmin` o una verificación de permiso en el servicio.
+- La cola de trampas se calcula al vuelo y no guarda decisiones: al confirmar, el intento queda con `xp_earned = 0` y sale de la lista. «Descartar» no se persiste.
+
 ## Cómo agregar un módulo (Persona B)
 
 1. `src/modules/<módulo>/schemas.ts`: esquemas Zod de entrada.
